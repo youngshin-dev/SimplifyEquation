@@ -27,7 +27,7 @@ Letter     := "A" | "B" | "C" | "D" | "E" | "F" | "G"
 
 using System;
 using System.IO;
-using SimplifyEquation;
+
 
 
 namespace SimplifyEquation

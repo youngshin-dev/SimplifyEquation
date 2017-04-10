@@ -81,10 +81,12 @@ namespace SimplifyEquation
 						left_dict.Add(item.Item1, new List<float> { item.Item2 });
 				}
 			}
+			/*
 			if (leftHand == 1)
 				DistributeTheSign(1, right_dict);
 			else
 				DistributeTheSign(-1, left_dict);
+				*/
 
 		}
 
@@ -104,12 +106,12 @@ namespace SimplifyEquation
 			walker.GetNext();
 			ParseExpression();
 			//DistributeTheSign(op, leftHand);
-			/*
+
 			if (leftHand == 1)
 				DistributeTheSign(op, right_dict);
 			else
 				DistributeTheSign(op, left_dict);
-				*/
+
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(ClosedParenthesisToken)))
 				throw new Exception("Expected a closing bracket");
 			walker.GetNext();
