@@ -13,7 +13,9 @@ namespace SimplifyEquation
 		private TokenWalker walker;
 		private Dictionary<string, List<float>> right_dict = new Dictionary<string, List<float>>();
 		private Dictionary<string, List<float>> left_dict = new Dictionary<string, List<float>>();
-		private int leftHand = 1;
+		//private bool leftHand = true;
+		private List<Tuple<string, float>> allRightTerms = new List<Tuple<string, float>>();
+		private List<Tuple<string, float>> allLeftTerms = new List<Tuple<string, float>>();
 
 		public Parser(List<Token> input)
 		{
@@ -24,12 +26,14 @@ namespace SimplifyEquation
 		public string ParseEquation()
 		{
 			string result = "";
-			ParseExpression();
+			allLeftTerms.AddRange(ParseExpression());
+			PutTermsInDict(allLeftTerms,left_dict);
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(EqualToken)))
 				throw new Exception("Expected an equal sign");
 			walker.GetNext();
-			leftHand = -1;
-			ParseExpression();
+			//leftHand = false;
+			allRightTerms.AddRange(ParseExpression());
+			PutTermsInDict(allRightTerms,right_dict);
 
 			result = SumUpCoefficients();
 			return result;
@@ -40,10 +44,10 @@ namespace SimplifyEquation
 		//temp is passed by reference to ParseTerm and updated there.
 		//Then at the end of ParseExpression, each variable key is updated with the coefficients collected in the temp
 		//Then the coefficients are updated according to the sign infront of the opening barcket. 
-		public void ParseExpression()
+		public List<Tuple<string,float>> ParseExpression()
 		{
 			bool nextIsNegative = walker.ThereAreMoreTokens && walker.IsNextOfType(typeof(MinusToken));
-			List<Tuple<string, float>> temp = new List<Tuple<string, float>>();
+			List<Tuple<string, float>> ex_temp = new List<Tuple<string, float>>();
 			//we assume that the first term is positive unless we see negative sign
 			int neg = 1;
 			if (nextIsNegative)
@@ -51,105 +55,70 @@ namespace SimplifyEquation
 				neg = -1;
 				walker.GetNext();
 			}
-			ParseTerm(neg, temp);
+			ex_temp.AddRange(ParseTerm(neg));
 
 			while (walker.ThereAreMoreTokens && (walker.IsNextOfType(typeof(MinusToken)) || walker.IsNextOfType(typeof(PlusToken))))
 			{
 				var op = walker.GetNext();
 				if (op is PlusToken)
-					ParseTerm(1, temp);
+					ex_temp.AddRange(ParseTerm(1));
 				else
-					ParseTerm(-1, temp);
+					ex_temp.AddRange(ParseTerm(-1));
+
 			}
-			if (leftHand == 1)
-			{
-				foreach (Tuple<string, float> item in temp)
-				{
-					if (right_dict.ContainsKey(item.Item1))
-						right_dict[item.Item1].Add(item.Item2);
-					else
-						right_dict.Add(item.Item1, new List<float> { item.Item2 });
-				}
-			}
-			else
-			{
-				foreach (Tuple<string, float> item in temp)
-				{
-					if (left_dict.ContainsKey(item.Item1))
-						left_dict[item.Item1].Add(item.Item2);
-					else
-						left_dict.Add(item.Item1, new List<float> { item.Item2 });
-				}
-			}
-			/*
-			if (leftHand == 1)
-				DistributeTheSign(1, right_dict);
-			else
-				DistributeTheSign(-1, left_dict);
-				*/
+
+			return ex_temp;
+				              
+
 
 		}
 
 		//Term       := RealNumber | RealNumber Variable | "(" Expression ")"
-		public void ParseTerm(int op, List<Tuple<string, float>> temp)
+		public List<Tuple<string, float>> ParseTerm(int op)
 		{
+			List<Tuple<string, float>> temp = new List<Tuple<string, float>>();
 			if (walker.ThereAreMoreTokens && walker.IsNextOfType(typeof(TermToken)))
 			{
 				var tr = walker.GetNext();
 				var term = tr as TermToken;
 				//temp.Add(Tuple.Create(term.Variable, term.Coefficient * op * leftHand));
 				temp.Add(Tuple.Create(term.Variable, term.Coefficient * op));
-				return;
+				return temp;
 			}
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(OpenParenthesisToken)))
 				throw new Exception("Expected a term or opening bracket");
 			walker.GetNext();
-			ParseExpression();
-			//DistributeTheSign(op, leftHand);
-
-			if (leftHand == 1)
-				DistributeTheSign(op, right_dict);
-			else
-				DistributeTheSign(op, left_dict);
+			temp.AddRange(ParseExpression());
+			DistributeTheSign(op,temp);
 
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(ClosedParenthesisToken)))
 				throw new Exception("Expected a closing bracket");
 			walker.GetNext();
 
-			return;
+			return temp;
 		}
 
-
-		/*private void DistributeTheSign(int neg, int left)
+		private void DistributeTheSign(int neg, List<Tuple<string, float>> temp )
 		{
-			List<string> keys = new List<string>(dict.Keys);
-			foreach (string key in keys)
+			for (int i = 0; i < temp.Count; i++)
 			{
-				for (int i = 0; i < dict[key].Count; i++)
-				{
-					float temp = dict[key][i];
-					float newCoef = temp * neg * left;
-					dict[key][i] = newCoef;
-				}
-
+				temp[i] = Tuple.Create(temp[i].Item1, temp[i].Item2 * neg);
 			}
 		}
-		*/
 
 
-		private void DistributeTheSign(int neg, Dictionary<string, List<float>> dictionary)
+		private void PutTermsInDict(List<Tuple<string, float>> terms, Dictionary<string, List<float>> dict)
 		{
-			List<string> keys = new List<string>(dictionary.Keys);
-			foreach (string key in keys)
-			{
-				for (int i = 0; i < dictionary[key].Count; i++)
-				{
-					float temp = dictionary[key][i];
-					float newCoef = temp * neg;
-					dictionary[key][i] = newCoef;
-				}
 
-			}
+			foreach (Tuple<string, float> term in terms)
+			{
+
+				if (dict.ContainsKey(term.Item1))
+					dict[term.Item1].Add(term.Item2);
+				else
+					dict.Add(term.Item1, new List<float> { term.Item2 });
+			}	
+
 		}
 
 		private string SumUpCoefficients()
@@ -168,25 +137,25 @@ namespace SimplifyEquation
 				{
 					foreach (float coef in right_dict[key])
 					{
-						sum = sum + coef;
+						sum = sum - coef;
 					}
 				}
 				else if (!right_dict.ContainsKey(key) && left_dict.ContainsKey(key))
 				{
 					foreach (float coef in left_dict[key])
 					{
-						sum = sum - coef;
+						sum = sum + coef;
 					}
 				}
 				else if (right_dict.ContainsKey(key) && left_dict.ContainsKey(key))
 				{
 					foreach (float coef in right_dict[key])
 					{
-						sum = sum + coef;
+						sum = sum - coef;
 					}
 					foreach (float coef in left_dict[key])
 					{
-						sum = sum - coef;
+						sum = sum + coef;
 					}
 				}
 				else
