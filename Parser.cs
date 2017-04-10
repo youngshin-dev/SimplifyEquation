@@ -9,11 +9,9 @@ namespace SimplifyEquation
 {
 	public class Parser
 	{
-		//private List<Token> tokens=new List<Token>();
 		private TokenWalker walker;
 		private Dictionary<string, List<float>> right_dict = new Dictionary<string, List<float>>();
 		private Dictionary<string, List<float>> left_dict = new Dictionary<string, List<float>>();
-		//private bool leftHand = true;
 		private List<Tuple<string, float>> allRightTerms = new List<Tuple<string, float>>();
 		private List<Tuple<string, float>> allLeftTerms = new List<Tuple<string, float>>();
 
@@ -39,11 +37,7 @@ namespace SimplifyEquation
 			return result;
 		}
 
-		//Expression := [ "-" ] Term { ("+" | "-") Term }
-		//temp stores Tuples of variable and coefficient in a term until we see closing bracket.
-		//temp is passed by reference to ParseTerm and updated there.
-		//Then at the end of ParseExpression, each variable key is updated with the coefficients collected in the temp
-		//Then the coefficients are updated according to the sign infront of the opening barcket. 
+		//Expression := [ "-" ] Term { ("+" | "-") Term } 
 		public List<Tuple<string,float>> ParseExpression()
 		{
 			bool nextIsNegative = walker.ThereAreMoreTokens && walker.IsNextOfType(typeof(MinusToken));
@@ -69,14 +63,13 @@ namespace SimplifyEquation
 
 			return ex_temp;
 				              
-
-
 		}
 
 		//Term       := RealNumber | RealNumber Variable | "(" Expression ")"
 		public List<Tuple<string, float>> ParseTerm(int op)
 		{
 			List<Tuple<string, float>> temp = new List<Tuple<string, float>>();
+			// RealNumber Variable
 			if (walker.ThereAreMoreTokens && walker.IsNextOfType(typeof(TermToken)))
 			{
 				var tr = walker.GetNext();
@@ -85,10 +78,12 @@ namespace SimplifyEquation
 				temp.Add(Tuple.Create(term.Variable, term.Coefficient * op));
 				return temp;
 			}
+			//  "(" Expression ")"
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(OpenParenthesisToken)))
 				throw new Exception("Expected a term or opening bracket");
 			walker.GetNext();
 			temp.AddRange(ParseExpression());
+			//when the terms in the expression is returned, the sign at the front of the bracket is distributed
 			DistributeTheSign(op,temp);
 
 			if (walker.ThereAreMoreTokens && !walker.IsNextOfType(typeof(ClosedParenthesisToken)))
